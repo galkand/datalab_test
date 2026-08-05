@@ -40,7 +40,7 @@ services:
         mkdir -p /hadoop/dfs/name;
         chmod 777 /hadoop/dfs/name || true;
 
-        # С„РѕСЂРјР°С‚РёСЂСѓРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё СЃРѕСЃС‚РѕСЏРЅРёСЏ РµС‰С‘ РЅРµС‚
+        # форматируем только если состояния ещё нет
         if [ ! -f /hadoop/dfs/name/current/VERSION ]; then
           echo "Formatting NameNode (first run)...";
           hdfs namenode -format -force -nonInteractive;
@@ -89,7 +89,7 @@ services:
       timeout: 8s
       retries: 30
 
-  # РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ HDFS РґРёСЂРµРєС‚РѕСЂРёР№ (warehouse, landing Рё С‚.Рї.)
+  # Инициализация HDFS директорий (warehouse, landing и т.п.)
   hdfs-init:
     image: apache/hadoop:3.4
     profiles: ["core"]
@@ -113,12 +113,12 @@ services:
         set -euo pipefail;
 
         echo "[hdfs-init] waiting for NameNode / HDFS..."
-        # Р¶РґС‘Рј, РїРѕРєР° HDFS РЅР°С‡РЅС‘С‚ РѕС‚РІРµС‡Р°С‚СЊ
+        # ждём, пока HDFS начнёт отвечать
         until hdfs dfs -ls / >/dev/null 2>&1; do
           sleep 2
         done
 
-        # Р¶РґС‘Рј РІС‹С…РѕРґР° РёР· safe mode (РІР°Р¶РЅРѕ РёРјРµРЅРЅРѕ РїРµСЂРµРґ chmod/chown/mkdir)
+        # ждём выхода из safe mode (важно именно перед chmod/chown/mkdir)
         echo "[hdfs-init] waiting for safemode OFF..."
         while hdfs dfsadmin -safemode get 2>/dev/null | grep -q "Safe mode is ON"; do
           hdfs dfsadmin -safemode get || true
@@ -201,7 +201,7 @@ services:
         -Djavax.jdo.option.ConnectionUserName=${HIVE_METASTORE_DB_USER:-hive}
         -Djavax.jdo.option.ConnectionPassword=${HIVE_METASTORE_DB_PASSWORD:?Set HIVE_METASTORE_DB_PASSWORD in .env}
     healthcheck:
-      # РџСЂРѕРІРµСЂСЏРµРј РїРѕСЂС‚ metastore thrift (bash /dev/tcp)
+      # Проверяем порт metastore thrift (bash /dev/tcp)
       test: ["CMD-SHELL", "bash -lc 'echo > /dev/tcp/127.0.0.1/9083'"]
       interval: 10s
       timeout: 5s
@@ -463,16 +463,16 @@ services:
       _AIRFLOW_WWW_USER_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
       _AIRFLOW_WWW_USER_ROLE: Admin
 
-      # Р”Р»СЏ S3KeySensor / S3Hook (MinIO)
+      # Для S3KeySensor / S3Hook (MinIO)
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       AWS_DEFAULT_REGION: us-east-1
       AIRFLOW_CONN_MINIO_S3: aws://${MINIO_ROOT_USER:-minioadmin}:${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}@?endpoint_url=http%3A%2F%2Fminio%3A9000
       
-      # Р”Р»СЏ SparkSubmitOperator
+      # Для SparkSubmitOperator
       AIRFLOW_CONN_SPARK_DEFAULT: spark://spark-master:7077
 
-      # Hadoop client РєРѕРЅС„РёРіРё (РµСЃР»Рё РїРѕРЅР°РґРѕР±РёС‚СЃСЏ hdfs РёР· BashOperator)
+      # Hadoop client конфиги (если понадобится hdfs из BashOperator)
       HADOOP_CONF_DIR: /opt/conf
     volumes:
       - ./airflow/dags:/opt/airflow/dags
@@ -506,7 +506,7 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}@airflow-db:5432/${AIRFLOW_DB_NAME:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
 
-      # Р”Р»СЏ S3KeySensor / S3Hook (MinIO)
+      # Для S3KeySensor / S3Hook (MinIO)
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       AWS_DEFAULT_REGION: us-east-1
@@ -525,7 +525,7 @@ services:
       SPARK_PROFILE: ${SPARK_PROFILE}
       SPARK_SQL_SHUFFLE_PARTITIONS: ${SPARK_SQL_SHUFFLE_PARTITIONS}
 
-      # Hadoop client РєРѕРЅС„РёРіРё
+      # Hadoop client конфиги
       HADOOP_CONF_DIR: /opt/conf
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -559,7 +559,7 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}@airflow-db:5432/${AIRFLOW_DB_NAME:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
 
-     # Р”Р»СЏ S3KeySensor / S3Hook (MinIO)
+     # Для S3KeySensor / S3Hook (MinIO)
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       AWS_DEFAULT_REGION: us-east-1
@@ -578,7 +578,7 @@ services:
       SPARK_PROFILE: ${SPARK_PROFILE}
       SPARK_SQL_SHUFFLE_PARTITIONS: ${SPARK_SQL_SHUFFLE_PARTITIONS}
 
-      # Hadoop client РєРѕРЅС„РёРіРё
+      # Hadoop client конфиги
       HADOOP_CONF_DIR: /opt/conf
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -599,7 +599,7 @@ services:
     networks: [datalab]
     ports:
       - "127.0.0.1:8123:8123"   # HTTP
-      - "127.0.0.1:9009:9000"   # Native (host 9009, С‡С‚РѕР±С‹ РЅРµ РєРѕРЅС„Р»РёРєС‚РѕРІР°С‚СЊ СЃ MinIO:9000)
+      - "127.0.0.1:9009:9000"   # Native (host 9009, чтобы не конфликтовать с MinIO:9000)
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./ddl:/workspace/ddl:ro
