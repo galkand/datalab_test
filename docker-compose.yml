@@ -289,9 +289,6 @@ services:
       mc mb -p local/raw/yelp/review/full || true;
       mc mb -p local/raw/yelp/review/increment || true;
 
-      echo '[minio-init] setting anonymous download policy for raw bucket';
-      mc anonymous set download local/raw || true;
-
       echo '[minio-init] validating source files';
       [ -s /data/business.json ] || { echo '[minio-init] ERROR: /data/business.json is missing or empty'; exit 2; }
       [ -s /data/review.json ] || { echo '[minio-init] ERROR: /data/review.json is missing or empty'; exit 2; }
