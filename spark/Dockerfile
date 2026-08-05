@@ -14,4 +14,8 @@ RUN mkdir -p /opt/spark/jars && \
 
 RUN ls -la /opt/spark/jars | grep -E 'hadoop-aws|aws-java-sdk-bundle'
 
+# Package Spark applications into the image so Airflow does not depend on a
+# host-specific bind mount.
+COPY --chown=185:0 airflow/jobs /work/jobs
+
 USER 185
