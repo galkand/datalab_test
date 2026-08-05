@@ -1,4 +1,4 @@
-# DataLab вЂ” Local Data Platform Reference (Spark + Airflow + ClickHouse)
+# DataLab — Local Data Platform Reference (Spark + Airflow + ClickHouse)
 
 *A reproducible local stack for building and testing modern data pipelines.*
 
@@ -19,8 +19,8 @@ docker compose --profile core --profile spark --profile airflow --profile bi up 
 DataLab implements a simplified analytical data platform that runs entirely locally.
 
 ```text
-data/ в†’ MinIO в†’ Spark в†” Hive Tables (HDFS) в†’ ClickHouse в†’ Superset
-                     в†‘
+data/ → MinIO → Spark ↔ Hive Tables (HDFS) → ClickHouse → Superset
+                     ↑
                    Airflow
 ```
 
@@ -42,7 +42,7 @@ DataLab is a local analytical data platform designed for experimenting with mode
 
 The platform implements an end-to-end analytical pipeline:
 
-MinIO (S3) в†’ Spark в†’ Hive (HDFS) в†’ ClickHouse в†’ Superset
+MinIO (S3) → Spark → Hive (HDFS) → ClickHouse → Superset
 
 Spark workloads are executed as containerized jobs orchestrated by Airflow. Each Airflow task launches a Docker-based Spark client that submits the job to the Spark Standalone cluster using `spark-submit`.
 
@@ -135,15 +135,15 @@ Airflow does not run Spark code directly. Instead, each Airflow task launches a 
 
 Execution flow:
 
-Airflow Task в†’ Docker Container (Spark Client) в†’ spark-submit в†’ Spark Cluster
+Airflow Task → Docker Container (Spark Client) → spark-submit → Spark Cluster
 
 
 This approach provides several benefits:
 
-- **Execution isolation** вЂ” each job runs in an isolated container environment
-- **Reproducibility** вЂ” the runtime environment is defined by the container image
-- **Explicit job submission** вЂ” Spark applications are submitted via `spark-submit`
-- **Production-like architecture** вЂ” similar execution patterns are used in many production data platforms
+- **Execution isolation** — each job runs in an isolated container environment
+- **Reproducibility** — the runtime environment is defined by the container image
+- **Explicit job submission** — Spark applications are submitted via `spark-submit`
+- **Production-like architecture** — similar execution patterns are used in many production data platforms
 
 In this model:
 
@@ -312,8 +312,8 @@ Place the files in the `data` directory in the repository root:
 
 ```text
 data/
-в”њв”Ђв”Ђ business.json
-в””в”Ђв”Ђ review.json
+├── business.json
+└── review.json
 ```
 
 These files will be automatically uploaded to MinIO during platform bootstrap.
@@ -414,19 +414,19 @@ docker compose version
 
 ```text
 datalab/
-в”њв”Ђв”Ђ docker-compose.yml
-в”њв”Ђв”Ђ .env
-в”њв”Ђв”Ђ data
-в”‚   в”њв”Ђв”Ђ business.json
-в”‚   в””в”Ђв”Ђ review.json
-в”њв”Ђв”Ђ ddl
-в”‚   в”њв”Ђв”Ђ 01_hive_up.sql
-в”‚   в””в”Ђв”Ђ 02_clickhouse_up.sql
-в”њв”Ђв”Ђ airflow
-в”‚   в”њв”Ђв”Ђ dags
-в”‚   в””в”Ђв”Ђ jobs
-в”њв”Ђв”Ђ spark
-в””в”Ђв”Ђ conf
+├── docker-compose.yml
+├── .env
+├── data
+│   ├── business.json
+│   └── review.json
+├── ddl
+│   ├── 01_hive_up.sql
+│   └── 02_clickhouse_up.sql
+├── airflow
+│   ├── dags
+│   └── jobs
+├── spark
+└── conf
 ```
 
 ---
@@ -481,8 +481,8 @@ The DDL scripts are located in the `ddl` directory:
 
 ```text
 ddl/
-в”њв”Ђв”Ђ 01_hive_up.sql
-в””в”Ђв”Ђ 02_clickhouse_up.sql
+├── 01_hive_up.sql
+└── 02_clickhouse_up.sql
 ```
 
 These scripts create the required databases and tables used by Spark jobs and Superset dashboards.
@@ -527,13 +527,13 @@ docker compose exec -T clickhouse \
 
 ```text
 raw/
-в””в”Ђв”Ђ yelp/
-    в”њв”Ђв”Ђ business/
-    в”‚   в”њв”Ђв”Ђ full/
-    в”‚   в””в”Ђв”Ђ increment/
-    в””в”Ђв”Ђ review/
-        в”њв”Ђв”Ђ full/
-        в””в”Ђв”Ђ increment/
+└── yelp/
+    ├── business/
+    │   ├── full/
+    │   └── increment/
+    └── review/
+        ├── full/
+        └── increment/
 ```
 
 Example object paths:
