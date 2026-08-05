@@ -25,8 +25,8 @@ services:
     networks: [datalab]
     user: root
     ports:
-      - "9870:9870"   # NameNode UI
-      - "8020:8020"   # NameNode RPC
+      - "127.0.0.1:9870:9870"   # NameNode UI
+      - "127.0.0.1:8020:8020"   # NameNode RPC
     volumes:
       - nn_data:/hadoop/dfs/name
       - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
@@ -40,7 +40,7 @@ services:
         mkdir -p /hadoop/dfs/name;
         chmod 777 /hadoop/dfs/name || true;
 
-        # форматируем только если состояния ещё нет
+        # С„РѕСЂРјР°С‚РёСЂСѓРµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё СЃРѕСЃС‚РѕСЏРЅРёСЏ РµС‰С‘ РЅРµС‚
         if [ ! -f /hadoop/dfs/name/current/VERSION ]; then
           echo "Formatting NameNode (first run)...";
           hdfs namenode -format -force -nonInteractive;
@@ -67,7 +67,7 @@ services:
       namenode:
         condition: service_healthy
     ports:
-      - "9864:9864"   # DataNode UI
+      - "127.0.0.1:9864:9864"   # DataNode UI
     volumes:
       - dn_data:/hadoop/dfs/data
       - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
@@ -89,7 +89,7 @@ services:
       timeout: 8s
       retries: 30
 
-  # Инициализация HDFS директорий (warehouse, landing и т.п.)
+  # РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ HDFS РґРёСЂРµРєС‚РѕСЂРёР№ (warehouse, landing Рё С‚.Рї.)
   hdfs-init:
     image: apache/hadoop:3.4
     profiles: ["core"]
@@ -113,12 +113,12 @@ services:
         set -euo pipefail;
 
         echo "[hdfs-init] waiting for NameNode / HDFS..."
-        # ждём, пока HDFS начнёт отвечать
+        # Р¶РґС‘Рј, РїРѕРєР° HDFS РЅР°С‡РЅС‘С‚ РѕС‚РІРµС‡Р°С‚СЊ
         until hdfs dfs -ls / >/dev/null 2>&1; do
           sleep 2
         done
 
-        # ждём выхода из safe mode (важно именно перед chmod/chown/mkdir)
+        # Р¶РґС‘Рј РІС‹С…РѕРґР° РёР· safe mode (РІР°Р¶РЅРѕ РёРјРµРЅРЅРѕ РїРµСЂРµРґ chmod/chown/mkdir)
         echo "[hdfs-init] waiting for safemode OFF..."
         while hdfs dfsadmin -safemode get 2>/dev/null | grep -q "Safe mode is ON"; do
           hdfs dfsadmin -safemode get || true
@@ -152,17 +152,16 @@ services:
     hostname: metastore-db
     networks: [datalab]
     environment:
-      POSTGRES_DB: metastore
-      POSTGRES_USER: hive
-      POSTGRES_PASSWORD: hive
+      POSTGRES_DB: ${HIVE_METASTORE_DB_NAME:-metastore}
+      POSTGRES_USER: ${HIVE_METASTORE_DB_USER:-hive}
+      POSTGRES_PASSWORD: ${HIVE_METASTORE_DB_PASSWORD:?Set HIVE_METASTORE_DB_PASSWORD in .env}
       POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
       - metastore_db:/var/lib/postgresql/data
-      - ./postgres-metastore-init:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hive -d metastore -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -187,7 +186,7 @@ services:
       hdfs-init:
         condition: service_completed_successfully
     ports:
-      - "9083:9083"
+      - "127.0.0.1:9083:9083"
     volumes:
       - ./conf:/hive_custom_conf:ro
     environment:
@@ -198,11 +197,11 @@ services:
       SERVICE_OPTS: >-
         -Dlog4j.configurationFile=file:/hive_custom_conf/hive-log4j2.properties
         -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
-        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://metastore-db:5432/metastore
-        -Djavax.jdo.option.ConnectionUserName=hive
-        -Djavax.jdo.option.ConnectionPassword=hive
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://metastore-db:5432/${HIVE_METASTORE_DB_NAME:-metastore}
+        -Djavax.jdo.option.ConnectionUserName=${HIVE_METASTORE_DB_USER:-hive}
+        -Djavax.jdo.option.ConnectionPassword=${HIVE_METASTORE_DB_PASSWORD:?Set HIVE_METASTORE_DB_PASSWORD in .env}
     healthcheck:
-      # Проверяем порт metastore thrift (bash /dev/tcp)
+      # РџСЂРѕРІРµСЂСЏРµРј РїРѕСЂС‚ metastore thrift (bash /dev/tcp)
       test: ["CMD-SHELL", "bash -lc 'echo > /dev/tcp/127.0.0.1/9083'"]
       interval: 10s
       timeout: 5s
@@ -219,8 +218,8 @@ services:
       hive-metastore:
         condition: service_healthy
     ports:
-      - "10000:10000"
-      - "10002:10002"
+      - "127.0.0.1:10000:10000"
+      - "127.0.0.1:10002:10002"
     volumes:
       - ./conf:/hive_custom_conf:ro
       - ./ddl:/workspace/ddl:ro      
@@ -247,13 +246,13 @@ services:
     hostname: minio
     networks: [datalab]
     ports:
-      - "9000:9000" # S3 API
-      - "9001:9001" # Console
+      - "127.0.0.1:9000:9000" # S3 API
+      - "127.0.0.1:9001:9001" # Console
     volumes:
       - minio_data:/data
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     command: ["server", "/data", "--console-address", ":9001"]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9000/minio/health/ready >/dev/null || exit 1"]
@@ -266,6 +265,9 @@ services:
     profiles: ["core"]
     container_name: minio-init
     networks: [datalab]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     volumes:
       - ./data:/data:ro
     depends_on:
@@ -276,7 +278,7 @@ services:
       set -eu;
 
       echo '[minio-init] configuring alias';
-      mc alias set local http://minio:9000 minioadmin minioadmin123;
+      mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}";
 
       echo '[minio-init] creating bucket and lake prefixes';
       mc mb -p local/raw || true;
@@ -335,9 +337,9 @@ services:
       minio:
         condition: service_healthy
     ports:
-      - "8081:8080"
-      - "7077:7077"
-      - "4040:4040"
+      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:7077:7077"
+      - "127.0.0.1:4040:4040"
     volumes:
       - ./conf:/opt/conf:ro
     environment:
@@ -359,7 +361,7 @@ services:
       spark-master:
         condition: service_started
     ports:
-      - "8082:8081"
+      - "127.0.0.1:8082:8081"
     volumes:
       - ./conf:/opt/conf:ro
     environment:
@@ -381,7 +383,7 @@ services:
       spark-master:
         condition: service_started
     ports:
-      - "8083:8081"
+      - "127.0.0.1:8083:8081"
     volumes:
       - ./conf:/opt/conf:ro
     environment:
@@ -403,7 +405,7 @@ services:
       spark-master:
         condition: service_started
     ports:
-      - "8084:8081"
+      - "127.0.0.1:8084:8081"
     volumes:
       - ./conf:/opt/conf:ro
     environment:
@@ -427,13 +429,13 @@ services:
     hostname: airflow-db
     networks: [datalab]
     environment:
-      POSTGRES_DB: airflow
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: ${AIRFLOW_DB_NAME:-airflow}
+      POSTGRES_USER: ${AIRFLOW_DB_USER:-airflow}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}
     volumes:
       - airflow_db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -450,33 +452,33 @@ services:
         condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}@airflow-db:5432/${AIRFLOW_DB_NAME:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
 
       # Admin user (MVP)
-      _AIRFLOW_WWW_USER_USERNAME: admin
-      _AIRFLOW_WWW_USER_PASSWORD: admin
-      _AIRFLOW_WWW_USER_FIRSTNAME: Admin
-      _AIRFLOW_WWW_USER_LASTNAME: User
-      _AIRFLOW_WWW_USER_EMAIL: admin@example.com
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?Set AIRFLOW_ADMIN_PASSWORD in .env}
+      _AIRFLOW_WWW_USER_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME:-Admin}
+      _AIRFLOW_WWW_USER_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME:-User}
+      _AIRFLOW_WWW_USER_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
       _AIRFLOW_WWW_USER_ROLE: Admin
 
-      # Для S3KeySensor / S3Hook (MinIO)
-      AWS_ACCESS_KEY_ID: minioadmin
-      AWS_SECRET_ACCESS_KEY: minioadmin123
+      # Р”Р»СЏ S3KeySensor / S3Hook (MinIO)
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       AWS_DEFAULT_REGION: us-east-1
-      AIRFLOW_CONN_MINIO_S3: aws://minioadmin:minioadmin123@?endpoint_url=http%3A%2F%2Fminio%3A9000
+      AIRFLOW_CONN_MINIO_S3: aws://${MINIO_ROOT_USER:-minioadmin}:${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}@?endpoint_url=http%3A%2F%2Fminio%3A9000
       
-      # Для SparkSubmitOperator
+      # Р”Р»СЏ SparkSubmitOperator
       AIRFLOW_CONN_SPARK_DEFAULT: spark://spark-master:7077
 
-      # Hadoop client конфиги (если понадобится hdfs из BashOperator)
+      # Hadoop client РєРѕРЅС„РёРіРё (РµСЃР»Рё РїРѕРЅР°РґРѕР±РёС‚СЃСЏ hdfs РёР· BashOperator)
       HADOOP_CONF_DIR: /opt/conf
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./conf:/opt/conf:ro
-    command: ["bash", "-lc", "airflow db migrate && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true"]
+    command: ["bash", "-lc", "airflow db migrate && airflow users create --username \"$${_AIRFLOW_WWW_USER_USERNAME}\" --firstname \"$${_AIRFLOW_WWW_USER_FIRSTNAME}\" --lastname \"$${_AIRFLOW_WWW_USER_LASTNAME}\" --role Admin --email \"$${_AIRFLOW_WWW_USER_EMAIL}\" --password \"$${_AIRFLOW_WWW_USER_PASSWORD}\" || true"]
     restart: "no"
 
   airflow-webserver:
@@ -498,32 +500,32 @@ services:
       spark-master:
         condition: service_started
     ports:
-      - "8088:8080"
+      - "127.0.0.1:8088:8080"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}@airflow-db:5432/${AIRFLOW_DB_NAME:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
 
-      # Для S3KeySensor / S3Hook (MinIO)
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      AIRFLOW_CONN_MINIO_S3: ${AIRFLOW_CONN_MINIO_S3}
+      # Р”Р»СЏ S3KeySensor / S3Hook (MinIO)
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+      AWS_DEFAULT_REGION: us-east-1
+      AIRFLOW_CONN_MINIO_S3: aws://${MINIO_ROOT_USER:-minioadmin}:${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}@?endpoint_url=http%3A%2F%2Fminio%3A9000
 
-      S3A_ENDPOINT: ${S3A_ENDPOINT}
-      S3A_ACCESS_KEY: ${S3A_ACCESS_KEY}
-      S3A_SECRET_KEY: ${S3A_SECRET_KEY}
+      S3A_ENDPOINT: http://minio:9000
+      S3A_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3A_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
 
-      CH_HOST: ${CH_HOST}
-      CH_PORT: ${CH_PORT}
-      CH_DB: ${CH_DB}
-      CH_USER: ${CH_USER}
-      CH_PASSWORD: ${CH_PASSWORD}
+      CH_HOST: clickhouse
+      CH_PORT: 8123
+      CH_DB: ${CLICKHOUSE_DB:-analytics}
+      CH_USER: ${CLICKHOUSE_USER:-analytics}
+      CH_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env}
 
       SPARK_PROFILE: ${SPARK_PROFILE}
       SPARK_SQL_SHUFFLE_PARTITIONS: ${SPARK_SQL_SHUFFLE_PARTITIONS}
 
-      # Hadoop client конфиги
+      # Hadoop client РєРѕРЅС„РёРіРё
       HADOOP_CONF_DIR: /opt/conf
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -554,29 +556,29 @@ services:
         condition: service_started
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}@airflow-db:5432/${AIRFLOW_DB_NAME:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
 
-     # Для S3KeySensor / S3Hook (MinIO)
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      AIRFLOW_CONN_MINIO_S3: ${AIRFLOW_CONN_MINIO_S3}
+     # Р”Р»СЏ S3KeySensor / S3Hook (MinIO)
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+      AWS_DEFAULT_REGION: us-east-1
+      AIRFLOW_CONN_MINIO_S3: aws://${MINIO_ROOT_USER:-minioadmin}:${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}@?endpoint_url=http%3A%2F%2Fminio%3A9000
 
-      S3A_ENDPOINT: ${S3A_ENDPOINT}
-      S3A_ACCESS_KEY: ${S3A_ACCESS_KEY}
-      S3A_SECRET_KEY: ${S3A_SECRET_KEY}
+      S3A_ENDPOINT: http://minio:9000
+      S3A_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3A_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
 
-      CH_HOST: ${CH_HOST}
-      CH_PORT: ${CH_PORT}
-      CH_DB: ${CH_DB}
-      CH_USER: ${CH_USER}
-      CH_PASSWORD: ${CH_PASSWORD}
+      CH_HOST: clickhouse
+      CH_PORT: 8123
+      CH_DB: ${CLICKHOUSE_DB:-analytics}
+      CH_USER: ${CLICKHOUSE_USER:-analytics}
+      CH_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env}
 
       SPARK_PROFILE: ${SPARK_PROFILE}
       SPARK_SQL_SHUFFLE_PARTITIONS: ${SPARK_SQL_SHUFFLE_PARTITIONS}
 
-      # Hadoop client конфиги
+      # Hadoop client РєРѕРЅС„РёРіРё
       HADOOP_CONF_DIR: /opt/conf
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -596,15 +598,15 @@ services:
     hostname: clickhouse
     networks: [datalab]
     ports:
-      - "8123:8123"   # HTTP
-      - "9009:9000"   # Native (host 9009, чтобы не конфликтовать с MinIO:9000)
+      - "127.0.0.1:8123:8123"   # HTTP
+      - "127.0.0.1:9009:9000"   # Native (host 9009, С‡С‚РѕР±С‹ РЅРµ РєРѕРЅС„Р»РёРєС‚РѕРІР°С‚СЊ СЃ MinIO:9000)
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./ddl:/workspace/ddl:ro
     environment:
-      CLICKHOUSE_DB: analytics
-      CLICKHOUSE_USER: analytics
-      CLICKHOUSE_PASSWORD: analytics
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-analytics}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     ulimits:
       nofile:
@@ -626,13 +628,13 @@ services:
     hostname: superset-db
     networks: [datalab]
     environment:
-      POSTGRES_DB: superset
-      POSTGRES_USER: superset
-      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: ${SUPERSET_DB_NAME:-superset}
+      POSTGRES_USER: ${SUPERSET_DB_USER:-superset}
+      POSTGRES_PASSWORD: ${SUPERSET_DB_PASSWORD:?Set SUPERSET_DB_PASSWORD in .env}
     volumes:
       - superset_db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U superset -d superset -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -652,15 +654,15 @@ services:
     volumes:
       - superset_home:/app/superset_home
     environment:
-      SUPERSET_SECRET_KEY: "change_me_in_real_life"
-      SUPERSET_DATABASE_URI: postgresql+psycopg2://superset:superset@superset-db:5432/superset
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?Set SUPERSET_SECRET_KEY in .env}
+      SUPERSET_DATABASE_URI: postgresql+psycopg2://${SUPERSET_DB_USER:-superset}:${SUPERSET_DB_PASSWORD:?Set SUPERSET_DB_PASSWORD in .env}@superset-db:5432/${SUPERSET_DB_NAME:-superset}
       SUPERSET_LOAD_EXAMPLES: "no"
 
-      SUPERSET_ADMIN_USERNAME: "admin"
-      SUPERSET_ADMIN_FIRSTNAME: "Admin"
-      SUPERSET_ADMIN_LASTNAME: "User"
-      SUPERSET_ADMIN_EMAIL: "admin@example.com"
-      SUPERSET_ADMIN_PASSWORD: "admin"
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME:-Admin}
+      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME:-User}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@example.com}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?Set SUPERSET_ADMIN_PASSWORD in .env}
     command: >
       bash -lc '
         set -e;
@@ -690,12 +692,12 @@ services:
       clickhouse:
         condition: service_healthy
     ports:
-      - "8089:8088"
+      - "127.0.0.1:8089:8088"
     volumes:
       - superset_home:/app/superset_home
     environment:
-      SUPERSET_SECRET_KEY: "change_me_in_real_life"
-      SUPERSET_DATABASE_URI: postgresql+psycopg2://superset:superset@superset-db:5432/superset
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?Set SUPERSET_SECRET_KEY in .env}
+      SUPERSET_DATABASE_URI: postgresql+psycopg2://${SUPERSET_DB_USER:-superset}:${SUPERSET_DB_PASSWORD:?Set SUPERSET_DB_PASSWORD in .env}@superset-db:5432/${SUPERSET_DB_NAME:-superset}
       SUPERSET_LOAD_EXAMPLES: "no"
     command: >
       bash -lc '
