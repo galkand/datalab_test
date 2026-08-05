@@ -6,10 +6,11 @@ DataLab is a local reference implementation of a modern analytical data platform
 
 The project demonstrates how common data infrastructure systems can be combined into a reproducible end-to-end analytics stack running entirely on a local machine.
 
-The entire platform can be started locally with a single command:
+After the one-time environment setup described in Quick Start, the entire
+platform can be started locally with a single command:
 
 ```bash
-docker compose up -d
+docker compose --profile core --profile spark --profile airflow --profile bi up -d --build
 ```
 
 
@@ -328,19 +329,35 @@ data/business.json
 data/review.json
 ```
 
-2. Start the platform
+2. Create the local environment file.
 
-```bash
-docker compose up -d
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-3. Verify services
+Linux/macOS/Git Bash:
+
+```bash
+cp .env.example .env
+```
+
+The checked-in values are intended only for this local development stack.
+
+3. Start all platform profiles:
+
+```bash
+docker compose --profile core --profile spark --profile airflow --profile bi up -d --build
+```
+
+4. Verify services
 
 ```bash
 docker compose ps
 ```
 
-4. Initialize database schemas
+5. Initialize database schemas
 
 Hive:
 
@@ -523,7 +540,7 @@ docker compose down
 
 ```bash
 docker compose down -v
-docker compose up -d
+docker compose --profile core --profile spark --profile airflow --profile bi up -d --build
 ```
 
 ---
