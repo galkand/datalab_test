@@ -1,0 +1,7 @@
+.git
+.env
+data/
+test/
+airflow/logs/
+**/__pycache__/
+**/*.py[cod]
