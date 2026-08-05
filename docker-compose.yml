@@ -321,7 +321,8 @@ services:
   # =========================
   spark-master:
     build:
-      context: ./spark
+      context: .
+      dockerfile: spark/Dockerfile
     profiles: ["spark"]
     container_name: spark-master
     hostname: spark-master
@@ -348,7 +349,8 @@ services:
 
   spark-worker-1:
     build:
-      context: ./spark
+      context: .
+      dockerfile: spark/Dockerfile
     profiles: ["spark"]
     container_name: spark-worker-1
     hostname: spark-worker-1
@@ -369,7 +371,8 @@ services:
 
   spark-worker-2:
     build:
-      context: ./spark
+      context: .
+      dockerfile: spark/Dockerfile
     profiles: ["spark"]
     container_name: spark-worker-2
     hostname: spark-worker-2
@@ -390,7 +393,8 @@ services:
 
   spark-worker-3:
     build:
-      context: ./spark
+      context: .
+      dockerfile: spark/Dockerfile
     profiles: ["spark"]
     container_name: spark-worker-3
     hostname: spark-worker-3
@@ -506,9 +510,6 @@ services:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       AIRFLOW_CONN_MINIO_S3: ${AIRFLOW_CONN_MINIO_S3}
 
-      # === Spark jobs runtime env (passed-through into spark-client) ===
-      AIRFLOW_JOBS_DIR: ${AIRFLOW_JOBS_DIR}
-
       S3A_ENDPOINT: ${S3A_ENDPOINT}
       S3A_ACCESS_KEY: ${S3A_ACCESS_KEY}
       S3A_SECRET_KEY: ${S3A_SECRET_KEY}
@@ -561,9 +562,6 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       AIRFLOW_CONN_MINIO_S3: ${AIRFLOW_CONN_MINIO_S3}
-
-      # === Spark jobs runtime env (passed-through into spark-client) ===
-      AIRFLOW_JOBS_DIR: ${AIRFLOW_JOBS_DIR}
 
       S3A_ENDPOINT: ${S3A_ENDPOINT}
       S3A_ACCESS_KEY: ${S3A_ACCESS_KEY}
@@ -673,7 +671,7 @@ services:
         superset db upgrade;
         superset init;
 
-        superset fab create-admin --username "${SUPERSET_ADMIN_USERNAME}" --firstname "${SUPERSET_ADMIN_FIRSTNAME}" --lastname "${SUPERSET_ADMIN_LASTNAME}" --email "${SUPERSET_ADMIN_EMAIL}" --password "${SUPERSET_ADMIN_PASSWORD}" || true;
+        superset fab create-admin --username "$${SUPERSET_ADMIN_USERNAME}" --firstname "$${SUPERSET_ADMIN_FIRSTNAME}" --lastname "$${SUPERSET_ADMIN_LASTNAME}" --email "$${SUPERSET_ADMIN_EMAIL}" --password "$${SUPERSET_ADMIN_PASSWORD}" || true;
       '
 
     restart: "no"
