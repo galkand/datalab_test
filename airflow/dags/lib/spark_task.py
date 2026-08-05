@@ -4,7 +4,6 @@ import os
 from typing import Mapping, Sequence, Optional, Dict
 
 from airflow.providers.docker.operators.docker import DockerOperator
-from docker.types import Mount
 
 
 DEFAULT_IMAGE = "datalab-spark-master:latest"
@@ -19,16 +18,6 @@ def _env(name: str, default: Optional[str] = None) -> Optional[str]:
         return default
     v = v.strip()
     return v if v else default
-
-DEFAULT_JOBS_DIR = _env("AIRFLOW_JOBS_DIR", "E:/datalab/infra/airflow/jobs")
-
-DEFAULT_JOBS_MOUNT = Mount(
-    source=DEFAULT_JOBS_DIR,
-    target="/work/jobs",
-    type="bind",
-    read_only=True,
-)
-
 
 SPARK_PROFILES: dict[str, dict[str, str]] = {
     "mvp": {
@@ -148,11 +137,11 @@ def build_spark_submit_command(
         DRIVER_HOST="${{SPARK_DRIVER_HOST:-}}"
         if [ -z "$DRIVER_HOST" ]; then
           if command -v getent >/dev/null 2>&1; then
-            DRIVER_HOST="$(getent ahostsv4 "$(hostname)" | awk "NR==1{{print \$1}}")"
+            DRIVER_HOST="$(getent ahostsv4 "$(hostname)" | awk "NR==1{{print \\$1}}")"
           fi
         fi
         if [ -z "$DRIVER_HOST" ]; then
-          DRIVER_HOST="$(hostname -i | awk "{{print \$1}}")"
+          DRIVER_HOST="$(hostname -i | awk "{{print \\$1}}")"
         fi
 
         echo "[spark] app_name={app_name}"
@@ -177,15 +166,11 @@ def spark_task(
     job_file: str,
     image: str = DEFAULT_IMAGE,
     network_mode: str = DEFAULT_NETWORK,
-    mounts: Optional[list[Mount]] = None,
     environment: Optional[Mapping[str, str]] = None,
     extra_confs: Optional[Mapping[str, str]] = None,
     extra_args: Optional[Sequence[str]] = None,
     debug: bool = False,
 ) -> DockerOperator:
-    if mounts is None:
-        mounts = [DEFAULT_JOBS_MOUNT]
-
     env = _default_environment_passthrough()
     if environment:
         env.update(dict(environment))
@@ -200,7 +185,6 @@ def spark_task(
         mount_tmp_dir=False,
         do_xcom_push=False,
         tty=True,
-        mounts=mounts,
         environment=env,
         command=build_spark_submit_command(
             app_name=app_name,

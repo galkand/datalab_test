@@ -3,18 +3,25 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict
 
 from pyspark.sql import SparkSession
 
 
+def required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value or not value.strip():
+        raise RuntimeError(f"Required environment variable {name} is not set")
+    return value
+
+
 @dataclass(frozen=True)
 class Env:
     # S3 (MinIO)
-    s3_endpoint: str = os.getenv("S3_ENDPOINT", "http://minio:9000")
-    s3_access_key: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
-    s3_secret_key: str = os.getenv("S3_SECRET_KEY", "minioadmin123")
+    s3_endpoint: str = field(default_factory=lambda: os.getenv("S3A_ENDPOINT", "http://minio:9000"))
+    s3_access_key: str = field(default_factory=lambda: required_env("S3A_ACCESS_KEY"))
+    s3_secret_key: str = field(default_factory=lambda: required_env("S3A_SECRET_KEY"))
 
     # Hive / HDFS
     hive_metastore_uris: str = os.getenv("HIVE_METASTORE_URIS", "thrift://hive-metastore:9083")
@@ -26,7 +33,7 @@ class Env:
     ch_port: int = int(os.getenv("CH_PORT", "8123"))
     ch_db: str = os.getenv("CH_DB", "analytics")
     ch_user: str = os.getenv("CH_USER", "analytics")
-    ch_password: str = os.getenv("CH_PASSWORD", "analytics")
+    ch_password: str = field(default_factory=lambda: required_env("CH_PASSWORD"))
 
 
 def build_spark(app_name: str, extra_conf: Optional[Dict[str, str]] = None) -> SparkSession:

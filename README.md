@@ -6,10 +6,11 @@ DataLab is a local reference implementation of a modern analytical data platform
 
 The project demonstrates how common data infrastructure systems can be combined into a reproducible end-to-end analytics stack running entirely on a local machine.
 
-The entire platform can be started locally with a single command:
+After the one-time environment setup described in Quick Start, the entire
+platform can be started locally with a single command:
 
 ```bash
-docker compose up -d
+docker compose --profile core --profile spark --profile airflow --profile bi up -d --build
 ```
 
 
@@ -328,19 +329,51 @@ data/business.json
 data/review.json
 ```
 
-2. Start the platform
+2. Create the local environment file.
 
-```bash
-docker compose up -d
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-3. Verify services
+Linux/macOS/Git Bash:
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill every empty secret before starting the stack. The example
+contains usernames and database names, but deliberately contains no passwords
+or application keys. Generate URL-safe secrets, for example:
+
+PowerShell:
+
+```powershell
+[guid]::NewGuid().ToString("N")
+```
+
+Linux/macOS/Git Bash:
+
+```bash
+openssl rand -hex 32
+```
+
+Do not commit `.env`; it is ignored by Git.
+
+3. Start all platform profiles:
+
+```bash
+docker compose --profile core --profile spark --profile airflow --profile bi up -d --build
+```
+
+4. Verify services
 
 ```bash
 docker compose ps
 ```
 
-4. Initialize database schemas
+5. Initialize database schemas
 
 Hive:
 
@@ -420,6 +453,9 @@ docker compose logs minio-init
 
 After the platform starts, the following services are available:
 
+Published ports are bound to `127.0.0.1`, so they are reachable only from the
+local machine unless you deliberately change the Compose configuration.
+
 | Service | URL |
 |--------|-----|
 | MinIO API | http://localhost:9000 |
@@ -431,13 +467,11 @@ After the platform starts, the following services are available:
 
 ---
 
-# Default Credentials
+# Local Credentials
 
-| Service | Username | Password |
-|--------|----------|----------|
-| MinIO | minioadmin | minioadmin123 |
-| Airflow | admin | admin |
-| Superset | admin | admin |
+There are no checked-in default passwords. Usernames and passwords are read
+from your ignored `.env` file. For real deployments, use Docker secrets or an
+external secret manager instead of an environment file.
 
 ---
 
@@ -523,7 +557,7 @@ docker compose down
 
 ```bash
 docker compose down -v
-docker compose up -d
+docker compose --profile core --profile spark --profile airflow --profile bi up -d --build
 ```
 
 ---
